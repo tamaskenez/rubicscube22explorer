@@ -10,6 +10,9 @@ const TILT_FACTOR = MAX_TILT_ANGLE / 250; // rad per pixel; reaches the clamp ~2
 const ORIENTATION_DECAY_RATE = 18; // 1/s; ~95% of distance covered in 1 s
 const INERT_ZONE_MULTIPLIER = 1.4; // bounding circle = cube half-size × this
 
+const DRAG_THRESHOLD = 5; // px before a pointer-down becomes a drag
+const DRAG_FACTOR = 0.01; // rad per pixel of drag distance
+
 const PALETTE_LAYOUT: ReadonlyArray<readonly [number, number, Color]> = [
   [1, 0, 'W'],
   [0, 1, 'O'],
@@ -67,6 +70,12 @@ export class UI {
   private readonly mainCubeCurrentOrientation = new THREE.Quaternion();
   private pointerScreenPos: { x: number; y: number } | null = null;
   private lastFrameTime = 0;
+  private dragState: {
+    startPointer: { x: number; y: number };
+    startOrientation: THREE.Quaternion;
+    active: boolean;
+  } | null = null;
+  private wasDragging = false;
 
   private readonly tmpAxis = new THREE.Vector3();
   private readonly tmpQuat = new THREE.Quaternion();
@@ -110,7 +119,10 @@ export class UI {
 
     const canvas = this.renderer.domElement;
     canvas.addEventListener('click', (e) => this.onClick(e));
+    canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e));
     canvas.addEventListener('pointermove', (e) => this.onPointerMove(e));
+    canvas.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    canvas.addEventListener('pointercancel', (e) => this.onPointerUp(e));
     canvas.addEventListener('pointerleave', () => this.onPointerLeave());
   }
 
@@ -156,6 +168,7 @@ export class UI {
   }
 
   private updateMainCubeOrientation(dt: number): void {
+    if (this.dragState) return; // freeze auto-return while pointer is down
     const cx = this.host.clientWidth / 2;
     const cy = this.host.clientHeight / 2;
     const inertRadius = this.cubeScreenHalfSize(MAIN_CUBE_ZOOM) * INERT_ZONE_MULTIPLIER;
@@ -249,16 +262,56 @@ export class UI {
   }
 
   private onClick(event: MouseEvent): void {
+    if (this.wasDragging) {
+      this.wasDragging = false;
+      return;
+    }
     const color = this.hitTestPalette(event);
     if (color !== null) this.onPaletteColorClicked(color);
   }
 
+  private onPointerDown(event: PointerEvent): void {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.dragState = {
+      startPointer: {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      },
+      startOrientation: this.mainCubeCurrentOrientation.clone(),
+      active: false,
+    };
+    this.wasDragging = false;
+    this.renderer.domElement.setPointerCapture(event.pointerId);
+  }
+
+  private onPointerUp(_event: PointerEvent): void {
+    this.dragState = null;
+  }
+
   private onPointerMove(event: PointerEvent): void {
     const rect = this.renderer.domElement.getBoundingClientRect();
-    this.pointerScreenPos = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    };
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    this.pointerScreenPos = { x: px, y: py };
+
+    if (this.dragState) {
+      const dx = px - this.dragState.startPointer.x;
+      const dy = py - this.dragState.startPointer.y;
+      const dist = Math.hypot(dx, dy);
+      if (!this.dragState.active && dist >= DRAG_THRESHOLD) {
+        this.dragState.active = true;
+        this.wasDragging = true;
+      }
+      if (this.dragState.active && dist > 0) {
+        const angle = DRAG_FACTOR * dist;
+        this.tmpAxis.set(dy / dist, dx / dist, 0);
+        this.tmpQuat.setFromAxisAngle(this.tmpAxis, angle);
+        this.mainCubeCurrentOrientation.multiplyQuaternions(this.tmpQuat, this.dragState.startOrientation);
+        this.updateMainCube();
+        this.renderer.domElement.style.cursor = 'grabbing';
+        return; // skip palette hover updates while actively dragging
+      }
+    }
 
     const color = this.hitTestPalette(event);
     this.renderer.domElement.style.cursor = color !== null ? 'pointer' : 'default';
@@ -270,7 +323,7 @@ export class UI {
 
   private onPointerLeave(): void {
     this.pointerScreenPos = null;
-    this.renderer.domElement.style.cursor = 'default';
+    if (!this.dragState) this.renderer.domElement.style.cursor = 'default';
     if (this.hoveredColor !== null) {
       this.hoveredColor = null;
       this.renderSwatches();

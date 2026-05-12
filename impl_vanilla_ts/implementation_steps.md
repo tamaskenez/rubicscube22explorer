@@ -18,3 +18,16 @@ Implement an empty application according to [Technology stack](../main.spec.md#T
 - AppState: add the currently selected color
 - UI: display the color palette, selected color, detect clicks, send the clicked color to Logic
 - Logic: receive color palette selection and update the state
+
+## Step 3: Main cube initial display and data structure
+
+- AppState: add a data structure which can store the colors of the facelets of a 2 x 2 rubic cube
+- UI: write a function which displays a cube:
+  - minimal graphics, just render the facelets as 2 one-sided triangles
+  - function takes arguments:
+    - facelet colors
+    - position of cube center on screen
+    - orientation of the cube
+    - zoom factor (otherwise the function should use a hard-coded projection)
+    - identifier and turn angle of a single face
+- UI: display the main cube

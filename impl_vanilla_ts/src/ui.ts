@@ -1,16 +1,9 @@
 import * as THREE from 'three';
-import type { Color } from './state';
+import { COLOR_HEX, type Color, type CubeFacelets } from './state';
+import { createCubeView, updateCubeView, type CubeView } from './cube_view';
 
 const BG_COLOR = 0xf0f0f0;
-
-const COLOR_HEX: Record<Color, number> = {
-  R: 0xba0c2f,
-  G: 0x009a44,
-  B: 0x003da5,
-  O: 0xfe5000,
-  Y: 0xffd700,
-  W: 0xffffff,
-};
+const MAIN_CUBE_ZOOM = 0.6;
 
 const PALETTE_LAYOUT: ReadonlyArray<readonly [number, number, Color]> = [
   [1, 0, 'W'],
@@ -62,6 +55,9 @@ export class UI {
   private readonly swatchFaces: THREE.Mesh[] = [];
   private selectedColor: Color | null = null;
   private hoveredColor: Color | null = null;
+  private readonly mainCubeView: CubeView;
+  private mainCubeFacelets: CubeFacelets | null = null;
+  private mainCubeOrientation = new THREE.Quaternion();
 
   onPaletteColorClicked: (color: Color) => void = () => {};
 
@@ -93,6 +89,9 @@ export class UI {
     );
     this.overlayCamera.position.z = 10;
 
+    this.mainCubeView = createCubeView();
+    this.mainScene.add(this.mainCubeView.group);
+
     this.buildPalette();
 
     window.addEventListener('resize', () => this.onResize());
@@ -114,6 +113,30 @@ export class UI {
   showSelectedColor(color: Color): void {
     this.selectedColor = color;
     this.renderSwatches();
+  }
+
+  renderMainCube(facelets: CubeFacelets): void {
+    this.mainCubeFacelets = facelets;
+    this.updateMainCube();
+  }
+
+  private updateMainCube(): void {
+    if (!this.mainCubeFacelets) return;
+    updateCubeView(
+      this.mainCubeView,
+      {
+        facelets: this.mainCubeFacelets,
+        screenCenter: { x: this.host.clientWidth / 2, y: this.host.clientHeight / 2 },
+        orientation: this.mainCubeOrientation,
+        zoom: MAIN_CUBE_ZOOM,
+        spinningFace: null,
+      },
+      {
+        width: this.host.clientWidth,
+        height: this.host.clientHeight,
+        camera: this.mainCamera,
+      },
+    );
   }
 
   private renderSwatches(): void {
@@ -162,6 +185,7 @@ export class UI {
     this.overlayCamera.right = w;
     this.overlayCamera.bottom = h;
     this.overlayCamera.updateProjectionMatrix();
+    this.updateMainCube();
   }
 
   private hitTestPalette(event: MouseEvent): Color | null {

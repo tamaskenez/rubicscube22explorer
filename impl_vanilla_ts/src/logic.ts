@@ -8,6 +8,7 @@ export class Logic {
 
   start(): void {
     this.ui.showSelectedColor(this.state.selectedColor);
+    this.ui.renderMainCube(this.state.cube);
   }
 
   onPaletteColorClicked(color: Color): void {

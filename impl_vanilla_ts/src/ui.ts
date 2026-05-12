@@ -76,6 +76,7 @@ export class UI {
     active: boolean;
   } | null = null;
   private wasDragging = false;
+  private cubeFrozen = false;
 
   private readonly tmpAxis = new THREE.Vector3();
   private readonly tmpQuat = new THREE.Quaternion();
@@ -173,28 +174,36 @@ export class UI {
     const cy = this.host.clientHeight / 2;
     const inertRadius = this.cubeScreenHalfSize(MAIN_CUBE_ZOOM) * INERT_ZONE_MULTIPLIER;
 
+    let dx = 0;
+    let dy = 0;
+    let dist = 0;
     let pointerOutside: boolean;
     if (this.pointerScreenPos) {
-      const dx = this.pointerScreenPos.x - cx;
-      const dy = this.pointerScreenPos.y - cy;
-      const dist = Math.hypot(dx, dy);
+      dx = this.pointerScreenPos.x - cx;
+      dy = this.pointerScreenPos.y - cy;
+      dist = Math.hypot(dx, dy);
       pointerOutside = dist > inertRadius;
-      if (pointerOutside) {
-        const angle = Math.min(TILT_FACTOR * dist, MAX_TILT_ANGLE);
-        this.tmpAxis.set(-dy / dist, -dx / dist, 0);
-        this.tmpQuat.setFromAxisAngle(this.tmpAxis, angle);
-        this.mainCubeTargetOrientation.multiplyQuaternions(this.tmpQuat, this.mainCubeIdleOrientation);
-      }
     } else {
-      this.mainCubeTargetOrientation.copy(this.mainCubeIdleOrientation);
       pointerOutside = true;
     }
 
-    if (pointerOutside) {
-      const t = 1 - Math.exp(-ORIENTATION_DECAY_RATE * dt);
-      this.mainCubeCurrentOrientation.slerp(this.mainCubeTargetOrientation, t);
-      this.updateMainCube();
+    if (this.cubeFrozen) {
+      if (!pointerOutside) return;
+      this.cubeFrozen = false;
     }
+
+    if (this.pointerScreenPos && dist > 0) {
+      const angle = Math.min(TILT_FACTOR * dist, MAX_TILT_ANGLE);
+      this.tmpAxis.set(-dy / dist, -dx / dist, 0);
+      this.tmpQuat.setFromAxisAngle(this.tmpAxis, angle);
+      this.mainCubeTargetOrientation.multiplyQuaternions(this.tmpQuat, this.mainCubeIdleOrientation);
+    } else {
+      this.mainCubeTargetOrientation.copy(this.mainCubeIdleOrientation);
+    }
+
+    const t = 1 - Math.exp(-ORIENTATION_DECAY_RATE * dt);
+    this.mainCubeCurrentOrientation.slerp(this.mainCubeTargetOrientation, t);
+    this.updateMainCube();
   }
 
   private cubeScreenHalfSize(zoom: number): number {
@@ -285,6 +294,9 @@ export class UI {
   }
 
   private onPointerUp(_event: PointerEvent): void {
+    if (this.dragState?.active) {
+      this.cubeFrozen = true;
+    }
     this.dragState = null;
   }
 

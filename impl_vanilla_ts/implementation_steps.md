@@ -9,8 +9,6 @@ As an architectural pattern we use the unidirectional data flow pattern.
 
 ## Step 1: A complete but empty application with all the dependencies in place
 
-[IMPLEMENT:.]
-
 Implement an empty application according to [Technology stack](../main.spec.md#Technology stack)
 
 ## Step 2: Implement the color palette
@@ -31,3 +29,35 @@ Implement an empty application according to [Technology stack](../main.spec.md#T
     - zoom factor (otherwise the function should use a hard-coded projection)
     - identifier and turn angle of a single face
 - UI: display the main cube
+
+## Step 4: Implement main cube's dynamic orientation
+
+Implement the following behaviors:
+
+- maintain separate "target" and "current" orientations for the cube
+- in each frame apply an exponential decay to turn the "current" towards the "target" but only
+  if the mouse pointer is outside of a circle slightly bigger than the cube on the screen. Otherwise
+  the current orientation is unchanged
+- use the "current" orientation to render the cube
+- if the mouse pointer is outside of a circle slightly bigger than the cube on the screen,
+  take the screen vector from cube center to the mouse pointer and calculate a rotation and angle pair
+  from it which turns the orientation of the cube away from the pointer. The axis is unambiguous, the
+  angle should be a factor times the mouse pointer distance, clamped to 45 degrees. Set the target orientation
+  to the idle orientation rotated by this axis/angle.
+
+### Step 5: Implement main cube drag
+
+- Implement a drag gesture so the user can rotate the cube by the mouse pointer. The dragging
+  should instantaneously set the current orientation to a new value
+
+
+### Step 6: Implement next-step display
+
+- Add a data structure to AppState to hold a vector of next-step cubes. Each cube has
+  - facelet colors
+  - instruction text (e.g. "R2")
+- Implement the the display of the next-step cubes along with arrows with instructions
+  from the main cube.
+- Make sure both the dynamic orientation and the drag mechanics work for the next-step cubes.
+
+To test the system, temporarily, on program startup add 7 next-step cubes to AppState.

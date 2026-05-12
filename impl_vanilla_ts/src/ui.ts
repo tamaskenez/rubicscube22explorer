@@ -5,6 +5,11 @@ import { createCubeView, updateCubeView, type CubeView } from './cube_view';
 const BG_COLOR = 0xf0f0f0;
 const MAIN_CUBE_ZOOM = 0.6;
 
+const MAX_TILT_ANGLE = Math.PI / 4; // 45 degrees
+const TILT_FACTOR = MAX_TILT_ANGLE / 250; // rad per pixel; reaches the clamp ~250 px from cube center
+const ORIENTATION_DECAY_RATE = 18; // 1/s; ~95% of distance covered in 1 s
+const INERT_ZONE_MULTIPLIER = 1.4; // bounding circle = cube half-size × this
+
 const PALETTE_LAYOUT: ReadonlyArray<readonly [number, number, Color]> = [
   [1, 0, 'W'],
   [0, 1, 'O'],
@@ -57,7 +62,14 @@ export class UI {
   private hoveredColor: Color | null = null;
   private readonly mainCubeView: CubeView;
   private mainCubeFacelets: CubeFacelets | null = null;
-  private mainCubeOrientation = new THREE.Quaternion();
+  private readonly mainCubeIdleOrientation = new THREE.Quaternion();
+  private readonly mainCubeTargetOrientation = new THREE.Quaternion();
+  private readonly mainCubeCurrentOrientation = new THREE.Quaternion();
+  private pointerScreenPos: { x: number; y: number } | null = null;
+  private lastFrameTime = 0;
+
+  private readonly tmpAxis = new THREE.Vector3();
+  private readonly tmpQuat = new THREE.Quaternion();
 
   onPaletteColorClicked: (color: Color) => void = () => {};
 
@@ -103,11 +115,15 @@ export class UI {
   }
 
   start(): void {
-    const tick = () => {
+    this.lastFrameTime = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min((now - this.lastFrameTime) / 1000, 0.1);
+      this.lastFrameTime = now;
+      this.updateMainCubeOrientation(dt);
       this.render();
       requestAnimationFrame(tick);
     };
-    tick();
+    requestAnimationFrame(tick);
   }
 
   showSelectedColor(color: Color): void {
@@ -127,7 +143,7 @@ export class UI {
       {
         facelets: this.mainCubeFacelets,
         screenCenter: { x: this.host.clientWidth / 2, y: this.host.clientHeight / 2 },
-        orientation: this.mainCubeOrientation,
+        orientation: this.mainCubeCurrentOrientation,
         zoom: MAIN_CUBE_ZOOM,
         spinningFace: null,
       },
@@ -137,6 +153,40 @@ export class UI {
         camera: this.mainCamera,
       },
     );
+  }
+
+  private updateMainCubeOrientation(dt: number): void {
+    const cx = this.host.clientWidth / 2;
+    const cy = this.host.clientHeight / 2;
+    const inertRadius = this.cubeScreenHalfSize(MAIN_CUBE_ZOOM) * INERT_ZONE_MULTIPLIER;
+
+    let pointerOutside: boolean;
+    if (this.pointerScreenPos) {
+      const dx = this.pointerScreenPos.x - cx;
+      const dy = this.pointerScreenPos.y - cy;
+      const dist = Math.hypot(dx, dy);
+      pointerOutside = dist > inertRadius;
+      if (pointerOutside) {
+        const angle = Math.min(TILT_FACTOR * dist, MAX_TILT_ANGLE);
+        this.tmpAxis.set(-dy / dist, -dx / dist, 0);
+        this.tmpQuat.setFromAxisAngle(this.tmpAxis, angle);
+        this.mainCubeTargetOrientation.multiplyQuaternions(this.tmpQuat, this.mainCubeIdleOrientation);
+      }
+    } else {
+      this.mainCubeTargetOrientation.copy(this.mainCubeIdleOrientation);
+      pointerOutside = true;
+    }
+
+    if (pointerOutside) {
+      const t = 1 - Math.exp(-ORIENTATION_DECAY_RATE * dt);
+      this.mainCubeCurrentOrientation.slerp(this.mainCubeTargetOrientation, t);
+      this.updateMainCube();
+    }
+  }
+
+  private cubeScreenHalfSize(zoom: number): number {
+    const halfHeight = Math.tan((this.mainCamera.fov * Math.PI) / 360) * this.mainCamera.position.z;
+    return (zoom / halfHeight) * (this.host.clientHeight / 2);
   }
 
   private renderSwatches(): void {
@@ -204,6 +254,12 @@ export class UI {
   }
 
   private onPointerMove(event: PointerEvent): void {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointerScreenPos = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+
     const color = this.hitTestPalette(event);
     this.renderer.domElement.style.cursor = color !== null ? 'pointer' : 'default';
     if (color !== this.hoveredColor) {
@@ -213,6 +269,7 @@ export class UI {
   }
 
   private onPointerLeave(): void {
+    this.pointerScreenPos = null;
     this.renderer.domElement.style.cursor = 'default';
     if (this.hoveredColor !== null) {
       this.hoveredColor = null;

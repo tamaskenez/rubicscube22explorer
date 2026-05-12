@@ -1,4 +1,4 @@
-# Rubic Cube 2x2
+# Rubic's Cube 2x2
 
 This is an experimental project where we implement an application with AI assistance but instead of prompts, the
 specification and the implementation hints are kept in version tracked files.

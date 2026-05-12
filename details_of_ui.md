@@ -35,7 +35,22 @@ OGRB
 where the colored rectangles are drawn with black borders, '.' marks an empty (background-colored) cell, which doesn't
 have borders, either.
 
-Each swatch is a plane mesh in the overlay scene. The selection indicator is a thicker black border (a larger black plane sitting behind the selected swatch). Unselected swatches are rendered with their colors mixed with ~25% background color, so the selected swatch stands out.
+Each swatch is a plane mesh in the overlay scene, drawn on top of a black border plane that fills a fixed-size cell. The cell's outer dimensions never change between states — only the colored face area inside it does — so the palette layout never shifts as selection or hover changes.
+
+**Visual states (combinable):**
+
+- **Normal** — narrow black border (2 px on each side); the colored face fills the remaining inner area at full saturation.
+- **Selected** — wider black border (4 px on each side); the colored face shrinks inward by the extra 2 px on each side. Full saturation.
+- **Hovered** — the face color is mixed 50% with white. Hover is independent of selection: the selected swatch can also be hovered (thick border + whitened face).
+
+Hover is UI-local state — it doesn't go through Logic. Selection round-trips through Logic.
+
+**Current layout values:**
+
+- Palette margin from top-left of window: 16 px
+- Cell outer size: 60 px (= 56 px normal face + 2 px border on each side)
+- Selected face inset: 4 px per side (face becomes 52 × 52 px)
+- Gap between adjacent cells: 6 px
 
 
 ## Displaying the "next step" cubes

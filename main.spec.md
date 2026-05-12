@@ -25,11 +25,10 @@ The AI surveyed the options: [Technology Survey](docs/001_technology_survey.md)
 
 We choose Stack S2, with the TypeScript option, relevant specs repeated here for convenience:
 
-- **Rendering:** Three.js (A4)
-- **UI:** Vanilla HTML + JS for buttons / dropdown / color palette; Three.js scene for cubes and arrows
-- **Solver:** Plain JS in a Web Worker
+- **Rendering:** Three.js (A4). All UI is rendered with Three.js (no DOM widgets, no HTML overlays); see [Rendering approach](details_of_ui.md#rendering-approach).
+- **Solver:** TypeScript in a Web Worker
 - **Build tool:** Vite (dev-time only).
-- **Total runtime deps:** `three` (+ optional `@types/three` if using TypeScript).
+- **Total runtime deps:** `three`, `troika-three-text` (for in-scene text labels). `@types/three` as a dev dep for TypeScript.
 
 ## Detailed user-level description
 

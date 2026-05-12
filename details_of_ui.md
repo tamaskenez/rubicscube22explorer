@@ -1,5 +1,16 @@
 # Details of the UI
 
+## Rendering approach
+
+The entire UI is rendered with Three.js — no HTML widgets, no DOM-based overlays. Each frame the renderer draws two scenes in sequence:
+
+1. **Main scene** (`PerspectiveCamera`): the cubes, arrows, and move-code labels in 3D world space. Move-code labels are attached to the arrows in 3D.
+2. **Overlay scene** (`OrthographicCamera`, 1 unit = 1 pixel): the color palette and the label above the main cube. Rendered on top of the main scene with `renderer.autoClear = false` and a depth-buffer clear between the two `renderer.render(...)` calls.
+
+Text is rendered with `troika-three-text` (signed-distance-field text mesh — stays crisp at any zoom). One extra runtime dependency.
+
+Pointer hit testing uses `THREE.Raycaster` against both scenes. The only DOM interaction outside the `<canvas>` is setting `canvas.style.cursor` to `'pointer'` when hovering an interactive element (palette swatch, cube facelet, next-step cube) and `'default'` otherwise.
+
 ## UI colors
 
 The background color is #F0F0F0
@@ -24,8 +35,7 @@ OGRB
 where the colored rectangles are drawn with black borders, '.' marks an empty (background-colored) cell, which doesn't
 have borders, either.
 
-It's fine to display it with a HTML table and indicating the selection with a thicker border and by mixing, maybe
-25% background color into the unselected colors.
+Each swatch is a plane mesh in the overlay scene. The selection indicator is a thicker black border (a larger black plane sitting behind the selected swatch). Unselected swatches are rendered with their colors mixed with ~25% background color, so the selected swatch stands out.
 
 
 ## Displaying the "next step" cubes
@@ -46,8 +56,8 @@ Proposal — adjust if you'd prefer different defaults:
 - **Shaft:** straight line, ~2 px wide, color `#333333` (dark grey — good contrast against the `#F0F0F0` background).
 - **Arrowhead:** filled triangle in the same color, ~10 px wide by ~14 px long, placed at the 75%-of-distance end (pointing toward the next-step cube).
 - **Label:** the move code (e.g. `R`, `R'`, `R2`) drawn near the midpoint of the visible shaft (the 50% point of the line). Offset slightly perpendicular to the line (~8 px) so the text sits beside the shaft rather than on top of it.
-- **Label typography:** system sans-serif (`system-ui, sans-serif`), 16 px, bold, color `#333333`. No background box — the line passes beside the text rather than through it.
-- **Rendering approach:** draw the shaft and arrowhead as Three.js `Line` + a small triangle mesh in screen space (or use `THREE.ArrowHelper`); draw labels as HTML overlays positioned via `CSS2DRenderer` so the text stays crisp at any zoom level.
+- **Label typography:** sans-serif, 16 px equivalent, bold, color `#333333`. No background box — the line passes beside the text rather than through it.
+- **Rendering approach:** draw the shaft and arrowhead as Three.js `Line` + a small triangle mesh (or use `THREE.ArrowHelper`) in the main scene; draw labels as `troika-three-text` meshes positioned along each arrow in 3D space.
 
 ## Click-to-advance animation
 

@@ -10,8 +10,17 @@ import {
 import { createCubeView, updateCubeView, type CubeView } from './cube_view';
 
 const BG_COLOR = 0xf0f0f0;
-const MAIN_CUBE_ZOOM = 0.6;
-const NEXT_STEP_CUBE_ZOOM = 0.3;
+
+// Each cube has its own perspective camera at distance CAMERA_DISTANCE looking at the cube
+// (which sits at the origin of its own scene). The cube's edge in world space is 2, so the
+// cube's face on screen fills CUBE_FACE_FILL_RATIO of the cube's viewport.
+const CAMERA_DISTANCE = 12;
+const CUBE_FOV_DEG = 17;
+const CUBE_FACE_FILL_RATIO =
+  2 / (2 * CAMERA_DISTANCE * Math.tan((CUBE_FOV_DEG * Math.PI) / 360)); // ≈ 0.536
+
+const MAIN_CUBE_VIEWPORT_FACTOR = 0.45; // viewport side = factor * canvas height
+const NEXT_STEP_VIEWPORT_FACTOR = 0.22;
 
 const MAX_TILT_ANGLE = Math.PI / 4; // 45 degrees
 const TILT_FACTOR = MAX_TILT_ANGLE / 250; // rad per pixel
@@ -68,7 +77,9 @@ interface Swatch {
 
 interface ManagedCube {
   view: CubeView;
-  zoom: number;
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  viewportSize: number;
   screenCenter: { x: number; y: number };
   facelets: CubeFacelets;
   idleOrientation: THREE.Quaternion;
@@ -115,8 +126,6 @@ function nextStepSlotPosition(
 export class UI {
   private readonly host: HTMLElement;
   private readonly renderer: THREE.WebGLRenderer;
-  private readonly mainScene = new THREE.Scene();
-  private readonly mainCamera: THREE.PerspectiveCamera;
   private readonly overlayScene = new THREE.Scene();
   private readonly overlayCamera: THREE.OrthographicCamera;
   private readonly raycaster = new THREE.Raycaster();
@@ -166,14 +175,6 @@ export class UI {
     this.renderer.autoClear = false;
     host.appendChild(this.renderer.domElement);
 
-    this.mainCamera = new THREE.PerspectiveCamera(
-      50,
-      host.clientWidth / host.clientHeight,
-      0.1,
-      100,
-    );
-    this.mainCamera.position.set(0, 0, 5);
-
     this.overlayCamera = new THREE.OrthographicCamera(
       0,
       host.clientWidth,
@@ -190,8 +191,10 @@ export class UI {
       new THREE.Float32BufferAttribute([0, 0, 0, -1, -0.5, 0, -1, 0.5, 0], 3),
     );
 
-    this.mainCube = this.createManagedCube(MAIN_CUBE_ZOOM, solvedCube());
-    this.mainScene.add(this.mainCube.view.group);
+    this.mainCube = this.createManagedCube(
+      this.viewportSizeFor(MAIN_CUBE_VIEWPORT_FACTOR),
+      solvedCube(),
+    );
 
     this.buildPalette();
 
@@ -239,14 +242,15 @@ export class UI {
   renderNextStepCubes(steps: NextStepCube[]): void {
     while (this.nextStepDisplays.length > steps.length) {
       const display = this.nextStepDisplays.pop()!;
-      this.mainScene.remove(display.cube.view.group);
       this.overlayScene.remove(display.arrow.shaft);
       this.overlayScene.remove(display.arrow.head);
       this.overlayScene.remove(display.arrow.label);
     }
     while (this.nextStepDisplays.length < steps.length) {
-      const cube = this.createManagedCube(NEXT_STEP_CUBE_ZOOM, solvedCube());
-      this.mainScene.add(cube.view.group);
+      const cube = this.createManagedCube(
+        this.viewportSizeFor(NEXT_STEP_VIEWPORT_FACTOR),
+        solvedCube(),
+      );
       const arrow = this.createArrow();
       this.overlayScene.add(arrow.shaft);
       this.overlayScene.add(arrow.head);
@@ -262,10 +266,17 @@ export class UI {
     this.layoutNextSteps();
   }
 
-  private createManagedCube(zoom: number, facelets: CubeFacelets): ManagedCube {
+  private createManagedCube(viewportSize: number, facelets: CubeFacelets): ManagedCube {
+    const view = createCubeView();
+    const scene = new THREE.Scene();
+    scene.add(view.group);
+    const camera = new THREE.PerspectiveCamera(CUBE_FOV_DEG, 1, 0.1, 100);
+    camera.position.set(0, 0, CAMERA_DISTANCE);
     return {
-      view: createCubeView(),
-      zoom,
+      view,
+      scene,
+      camera,
+      viewportSize,
       screenCenter: { x: 0, y: 0 },
       facelets,
       idleOrientation: new THREE.Quaternion(),
@@ -273,6 +284,10 @@ export class UI {
       currentOrientation: new THREE.Quaternion(),
       frozen: false,
     };
+  }
+
+  private viewportSizeFor(factor: number): number {
+    return factor * this.host.clientHeight;
   }
 
   private createArrow(): ArrowOverlay {
@@ -299,14 +314,12 @@ export class UI {
     const W = this.host.clientWidth;
     const H = this.host.clientHeight;
     const N = nextStepGridSize(this.nextStepDisplays.length);
-    const mainRadius =
-      this.cubeScreenHalfSize(this.mainCube.zoom) * ARROW_CUBE_RADIUS_FACTOR;
+    const mainRadius = this.cubeScreenHalfSize(this.mainCube) * ARROW_CUBE_RADIUS_FACTOR;
     for (let i = 0; i < this.nextStepDisplays.length; i++) {
       const display = this.nextStepDisplays[i];
       display.cube.screenCenter = nextStepSlotPosition(i, N, W, H);
       this.applyCubeView(display.cube);
-      const nextRadius =
-        this.cubeScreenHalfSize(display.cube.zoom) * ARROW_CUBE_RADIUS_FACTOR;
+      const nextRadius = this.cubeScreenHalfSize(display.cube) * ARROW_CUBE_RADIUS_FACTOR;
       this.updateArrow(
         display.arrow,
         this.mainCube.screenCenter,
@@ -375,27 +388,17 @@ export class UI {
   }
 
   private applyCubeView(cube: ManagedCube): void {
-    updateCubeView(
-      cube.view,
-      {
-        facelets: cube.facelets,
-        screenCenter: cube.screenCenter,
-        orientation: cube.currentOrientation,
-        zoom: cube.zoom,
-        spinningFace: null,
-      },
-      {
-        width: this.host.clientWidth,
-        height: this.host.clientHeight,
-        camera: this.mainCamera,
-      },
-    );
+    updateCubeView(cube.view, {
+      facelets: cube.facelets,
+      orientation: cube.currentOrientation,
+      spinningFace: null,
+    });
   }
 
   private updateCubeOrientation(cube: ManagedCube, dt: number): void {
     if (this.dragState?.cube === cube) return;
 
-    const inertRadius = this.cubeScreenHalfSize(cube.zoom) * INERT_ZONE_MULTIPLIER;
+    const inertRadius = this.cubeScreenHalfSize(cube) * INERT_ZONE_MULTIPLIER;
 
     let dx = 0;
     let dy = 0;
@@ -429,9 +432,8 @@ export class UI {
     this.applyCubeView(cube);
   }
 
-  private cubeScreenHalfSize(zoom: number): number {
-    const halfHeight = Math.tan((this.mainCamera.fov * Math.PI) / 360) * this.mainCamera.position.z;
-    return (zoom / halfHeight) * (this.host.clientHeight / 2);
+  private cubeScreenHalfSize(cube: ManagedCube): number {
+    return (CUBE_FACE_FILL_RATIO / 2) * cube.viewportSize;
   }
 
   private findNearestCube(px: number, py: number): ManagedCube {
@@ -497,12 +499,14 @@ export class UI {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
     this.renderer.setSize(w, h);
-    this.mainCamera.aspect = w / h;
-    this.mainCamera.updateProjectionMatrix();
     this.overlayCamera.right = w;
     this.overlayCamera.bottom = h;
     this.overlayCamera.updateProjectionMatrix();
+    this.mainCube.viewportSize = this.viewportSizeFor(MAIN_CUBE_VIEWPORT_FACTOR);
     this.mainCube.screenCenter = { x: w / 2, y: h / 2 };
+    for (const display of this.nextStepDisplays) {
+      display.cube.viewportSize = this.viewportSizeFor(NEXT_STEP_VIEWPORT_FACTOR);
+    }
     this.applyCubeView(this.mainCube);
     this.layoutNextSteps();
   }
@@ -594,9 +598,35 @@ export class UI {
   }
 
   private render(): void {
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+
+    this.renderer.setScissorTest(false);
+    this.renderer.setViewport(0, 0, w, h);
     this.renderer.clear();
-    this.renderer.render(this.mainScene, this.mainCamera);
+
+    this.renderer.setScissorTest(true);
+    this.renderCubeView(this.mainCube);
+    for (const display of this.nextStepDisplays) {
+      this.renderCubeView(display.cube);
+    }
+    this.renderer.setScissorTest(false);
+
+    this.renderer.setViewport(0, 0, w, h);
     this.renderer.clearDepth();
     this.renderer.render(this.overlayScene, this.overlayCamera);
+  }
+
+  private renderCubeView(cube: ManagedCube): void {
+    const h = this.host.clientHeight;
+    const vw = cube.viewportSize;
+    const vh = cube.viewportSize;
+    const vx = cube.screenCenter.x - vw / 2;
+    // WebGL's viewport Y is measured from the bottom of the canvas; convert from top-origin pixels.
+    const vy = h - cube.screenCenter.y - vh / 2;
+    this.renderer.setViewport(vx, vy, vw, vh);
+    this.renderer.setScissor(vx, vy, vw, vh);
+    this.renderer.clear();
+    this.renderer.render(cube.scene, cube.camera);
   }
 }

@@ -58,16 +58,8 @@ export interface CubeView {
 
 export interface CubeViewParams {
   facelets: CubeFacelets;
-  screenCenter: { x: number; y: number };
   orientation: THREE.Quaternion;
-  zoom: number;
   spinningFace: { face: Face; angle: number } | null;
-}
-
-export interface ViewportContext {
-  width: number;
-  height: number;
-  camera: THREE.PerspectiveCamera;
 }
 
 export function createCubeView(): CubeView {
@@ -125,15 +117,8 @@ const tmpQuaternion = new THREE.Quaternion();
 const tmpAxis = new THREE.Vector3();
 const tmpPos = new THREE.Vector3();
 
-export function updateCubeView(view: CubeView, params: CubeViewParams, viewport: ViewportContext): void {
-  const ndcX = (params.screenCenter.x / viewport.width) * 2 - 1;
-  const ndcY = -((params.screenCenter.y / viewport.height) * 2 - 1);
-  const halfHeight = Math.tan((viewport.camera.fov * Math.PI) / 360) * viewport.camera.position.z;
-  const halfWidth = halfHeight * viewport.camera.aspect;
-  view.group.position.set(ndcX * halfWidth, ndcY * halfHeight, 0);
-
+export function updateCubeView(view: CubeView, params: CubeViewParams): void {
   view.group.quaternion.copy(params.orientation);
-  view.group.scale.setScalar(params.zoom);
 
   const spin = params.spinningFace;
   for (const cubie of view.cubies) {

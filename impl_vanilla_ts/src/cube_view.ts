@@ -45,10 +45,10 @@ interface Cubie {
 }
 
 type FaceletQuad = [
-  THREE.MeshBasicMaterial,
-  THREE.MeshBasicMaterial,
-  THREE.MeshBasicMaterial,
-  THREE.MeshBasicMaterial,
+  THREE.MeshLambertMaterial,
+  THREE.MeshLambertMaterial,
+  THREE.MeshLambertMaterial,
+  THREE.MeshLambertMaterial,
 ];
 
 export interface CubeView {
@@ -56,7 +56,7 @@ export interface CubeView {
   cubies: Cubie[];
   faceletMaterials: Record<Face, FaceletQuad>;
   faceletMeshes: THREE.Mesh[];
-  bodyMaterial: THREE.MeshBasicMaterial;
+  bodyMaterial: THREE.MeshPhongMaterial;
 }
 
 export interface CubeViewParams {
@@ -68,7 +68,11 @@ export interface CubeViewParams {
 export function createCubeView(bodyGeometry: THREE.BufferGeometry): CubeView {
   const group = new THREE.Group();
 
-  const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const bodyMaterial = new THREE.MeshPhongMaterial({
+    color: 0x000000,
+    specular: 0x333333,
+    shininess: 40,
+  });
 
   const cubies: Cubie[] = [];
   for (let i = 0; i < 8; i++) {
@@ -88,11 +92,11 @@ export function createCubeView(bodyGeometry: THREE.BufferGeometry): CubeView {
   for (const face of ALL_FACES) {
     const cubieIndices = FACELET_TO_CUBIE[face];
     const [ax, ay, az] = FACE_AXIS[face];
-    const materials: THREE.MeshBasicMaterial[] = [];
+    const materials: THREE.MeshLambertMaterial[] = [];
 
     for (let i = 0; i < 4; i++) {
       const cubie = cubies[cubieIndices[i]];
-      const material = new THREE.MeshBasicMaterial({
+      const material = new THREE.MeshLambertMaterial({
         color: 0xffffff,
         polygonOffset: true,
         polygonOffsetFactor: FACELET_POLYGON_OFFSET_FACTOR,

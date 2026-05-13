@@ -104,3 +104,11 @@ When the user clicks on a next step, perform these two animations in parallel:
 
 - the next-step cubes and arrows fade out
 - the chosen face is turned on main cube
+
+### Step 13: Use STL model for cube rendering
+
+assets/cube_rounded_25.stl is a rounded, axis aligned cube. Load it at startup, transform it to the correct size/position
+and use it to render the black body of the 8 little cubes the 2 x 2 cubes is made of.
+
+### Step 14: Enable 3D lighting for the rendering of the cubes
+

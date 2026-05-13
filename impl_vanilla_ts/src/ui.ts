@@ -10,7 +10,7 @@ import {
 } from './state';
 import { createCubeView, updateCubeView, type CubeView } from './cube_view';
 
-const BG_COLOR = 0xf0f0f0;
+const BG_COLOR = 0xc0c0c0;
 
 // Each cube has its own perspective camera at distance CAMERA_DISTANCE looking at the cube
 // (which sits at the origin of its own scene). The cube's edge in world space is 2, so the
@@ -405,6 +405,11 @@ export class UI {
     const view = createCubeView(this.bodyGeometry);
     const scene = new THREE.Scene();
     scene.add(view.group);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+    const directional = new THREE.DirectionalLight(0xffffff, 1.4);
+    directional.position.set(3, 5, 4);
+    scene.add(directional);
     const camera = new THREE.PerspectiveCamera(CUBE_FOV_DEG, 1, 0.1, 100);
     camera.position.set(0, 0, CAMERA_DISTANCE);
     return {

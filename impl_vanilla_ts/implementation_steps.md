@@ -93,3 +93,7 @@ using the face-turn metric (both quarter or half turns count 1 step) and returns
 When the main cube is valid, call the solver, update the next-step cubes around the main cube.
 When the user clicks on a next-step cube, copy that configuration onto the main cube and refresh
 by calling the solver again and updating the next-step cubes.
+
+### Step 11: Allow color selection by key
+
+Handle the following key presses: w, y, g, b, r, o and make them activate the corresponding color on the palette.

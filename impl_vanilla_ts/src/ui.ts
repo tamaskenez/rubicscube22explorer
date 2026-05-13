@@ -171,6 +171,7 @@ export class UI {
 
   onPaletteColorClicked: (color: Color) => void = () => {};
   onMainCubeFaceletClicked: (face: Face, index: number) => void = () => {};
+  onNextStepCubeClicked: (index: number) => void = () => {};
 
   constructor(host: HTMLElement) {
     this.host = host;
@@ -570,7 +571,31 @@ export class UI {
     const facelet = this.hitTestMainCubeFacelet(event);
     if (facelet) {
       this.onMainCubeFaceletClicked(facelet.face, facelet.index);
+      return;
     }
+    const nextStepIndex = this.hitTestNextStepCube(event);
+    if (nextStepIndex !== null) {
+      this.onNextStepCubeClicked(nextStepIndex);
+    }
+  }
+
+  private hitTestNextStepCube(event: MouseEvent): number | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    for (let i = 0; i < this.nextStepDisplays.length; i++) {
+      const cube = this.nextStepDisplays[i].cube;
+      const halfV = cube.viewportSize / 2;
+      const dx = px - cube.screenCenter.x;
+      const dy = py - cube.screenCenter.y;
+      if (Math.abs(dx) > halfV || Math.abs(dy) > halfV) continue;
+      this.pointer.x = dx / halfV;
+      this.pointer.y = -dy / halfV;
+      this.raycaster.setFromCamera(this.pointer, cube.camera);
+      const hits = this.raycaster.intersectObjects(cube.view.faceletMeshes, false);
+      if (hits.length > 0) return i;
+    }
+    return null;
   }
 
   private hitTestMainCubeFacelet(event: MouseEvent): { face: Face; index: number } | null {

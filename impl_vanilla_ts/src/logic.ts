@@ -1,4 +1,4 @@
-import { AppState, Color, Face, initialAppState } from './state';
+import { AppState, Color, Face, cloneCubeFacelets, initialAppState } from './state';
 import { cubeValidity, type CubeValidity } from './cube_validator';
 import type { SolveResult } from './solver';
 import SolverWorker from './solver_worker?worker';
@@ -35,6 +35,14 @@ export class Logic {
   onMainCubeFaceletClicked(face: Face, index: number): void {
     if (this.state.cube[face][index] === this.state.selectedColor) return;
     this.state.cube[face][index] = this.state.selectedColor;
+    this.ui.renderMainCube(this.state.cube);
+    this.handleValidityChange();
+  }
+
+  onNextStepCubeClicked(index: number): void {
+    const step = this.state.nextSteps[index];
+    if (!step) return;
+    this.state.cube = cloneCubeFacelets(step.facelets);
     this.ui.renderMainCube(this.state.cube);
     this.handleValidityChange();
   }

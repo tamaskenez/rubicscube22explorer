@@ -32,6 +32,17 @@ export function solvedCube(): CubeFacelets {
   };
 }
 
+export function cloneCubeFacelets(src: CubeFacelets): CubeFacelets {
+  return {
+    U: [src.U[0], src.U[1], src.U[2], src.U[3]],
+    D: [src.D[0], src.D[1], src.D[2], src.D[3]],
+    L: [src.L[0], src.L[1], src.L[2], src.L[3]],
+    R: [src.R[0], src.R[1], src.R[2], src.R[3]],
+    F: [src.F[0], src.F[1], src.F[2], src.F[3]],
+    B: [src.B[0], src.B[1], src.B[2], src.B[3]],
+  };
+}
+
 export interface NextStepCube {
   facelets: CubeFacelets;
   instruction: string;

@@ -74,6 +74,12 @@ export class Logic {
   }
 
   private applySolverResult(result: SolveResult): void {
+    if (result.steps < 0) {
+      this.state.nextSteps = [];
+      this.ui.renderNextStepCubes([]);
+      this.ui.setMainCubeLabel('Solver failed (state explosion). Check the console.');
+      return;
+    }
     this.state.nextSteps = result.nextSteps;
     this.ui.renderNextStepCubes(result.nextSteps);
     this.ui.setMainCubeLabel(

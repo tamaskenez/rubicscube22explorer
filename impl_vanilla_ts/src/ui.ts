@@ -405,9 +405,9 @@ export class UI {
     const view = createCubeView(this.bodyGeometry);
     const scene = new THREE.Scene();
     scene.add(view.group);
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambient = new THREE.AmbientLight(0xffffff, 2.0);
     scene.add(ambient);
-    const directional = new THREE.DirectionalLight(0xffffff, 1.4);
+    const directional = new THREE.DirectionalLight(0xffffff, 3.0);
     directional.position.set(3, 5, 4);
     scene.add(directional);
     const camera = new THREE.PerspectiveCamera(CUBE_FOV_DEG, 1, 0.1, 100);

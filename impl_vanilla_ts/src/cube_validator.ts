@@ -67,6 +67,17 @@ function cornerKey(a: Color, b: Color, c: Color): string {
 }
 
 export function cubeValidity(facelets: CubeFacelets): CubeValidity {
+  const result = computeCubeValidity(facelets);
+  if (result !== 'valid_solved') {
+    // TEMPORARY: dump every checked state that isn't trivially solved so we can
+    // identify the configuration that triggered the solver to crash. Single-line
+    // JSON so it can be pasted into a test.
+    console.log('[cubeValidity]', result, JSON.stringify(facelets));
+  }
+  return result;
+}
+
+function computeCubeValidity(facelets: CubeFacelets): CubeValidity {
   const counts: Record<Color, number> = { R: 0, G: 0, B: 0, O: 0, Y: 0, W: 0 };
   for (const face of ALL_FACES) {
     for (let i = 0; i < 4; i++) {

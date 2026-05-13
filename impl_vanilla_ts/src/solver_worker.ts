@@ -20,6 +20,11 @@ const ctx = self as unknown as {
 
 ctx.onmessage = (event) => {
   const { requestId, facelets } = event.data;
-  const result = solveCube(facelets);
-  ctx.postMessage({ requestId, result });
+  try {
+    const result = solveCube(facelets);
+    ctx.postMessage({ requestId, result });
+  } catch (err) {
+    console.error('[solver worker] solveCube threw:', err);
+    ctx.postMessage({ requestId, result: { steps: -1, nextSteps: [] } });
+  }
 };

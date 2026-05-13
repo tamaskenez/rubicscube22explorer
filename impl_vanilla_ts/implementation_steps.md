@@ -97,3 +97,7 @@ by calling the solver again and updating the next-step cubes.
 ### Step 11: Allow color selection by key
 
 Handle the following key presses: w, y, g, b, r, o and make them activate the corresponding color on the palette.
+
+### Step 12: Animate face turn
+
+When the user 

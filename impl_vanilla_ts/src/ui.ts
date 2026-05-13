@@ -154,6 +154,7 @@ function nextStepSlotPosition(
 
 export class UI {
   private readonly host: HTMLElement;
+  private readonly bodyGeometry: THREE.BufferGeometry;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly overlayScene = new THREE.Scene();
   private readonly overlayCamera: THREE.OrthographicCamera;
@@ -207,8 +208,9 @@ export class UI {
   onMainCubeFaceletClicked: (face: Face, index: number) => void = () => {};
   onNextStepCubeClicked: (index: number) => void = () => {};
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, bodyGeometry: THREE.BufferGeometry) {
     this.host = host;
+    this.bodyGeometry = bodyGeometry;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -400,7 +402,7 @@ export class UI {
   }
 
   private createManagedCube(viewportSize: number, facelets: CubeFacelets): ManagedCube {
-    const view = createCubeView();
+    const view = createCubeView(this.bodyGeometry);
     const scene = new THREE.Scene();
     scene.add(view.group);
     const camera = new THREE.PerspectiveCamera(CUBE_FOV_DEG, 1, 0.1, 100);

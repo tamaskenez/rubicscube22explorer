@@ -34,9 +34,10 @@ const FACE_AXIS: Record<Face, readonly [number, number, number]> = {
 
 const ALL_FACES: ReadonlyArray<Face> = ['U', 'D', 'F', 'B', 'L', 'R'];
 
-const CUBIE_BODY_SIZE = 1.0;
-const FACELET_SIZE = 0.92;
+const FACELET_SIZE = 0.9;
 const FACELET_OFFSET = 0.501;
+const FACELET_POLYGON_OFFSET_FACTOR = -1;
+const FACELET_POLYGON_OFFSET_UNITS = -4;
 
 interface Cubie {
   basePos: THREE.Vector3;
@@ -64,10 +65,9 @@ export interface CubeViewParams {
   spinningFace: { face: Face; angle: number } | null;
 }
 
-export function createCubeView(): CubeView {
+export function createCubeView(bodyGeometry: THREE.BufferGeometry): CubeView {
   const group = new THREE.Group();
 
-  const bodyGeometry = new THREE.BoxGeometry(CUBIE_BODY_SIZE, CUBIE_BODY_SIZE, CUBIE_BODY_SIZE);
   const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
   const cubies: Cubie[] = [];
@@ -92,7 +92,12 @@ export function createCubeView(): CubeView {
 
     for (let i = 0; i < 4; i++) {
       const cubie = cubies[cubieIndices[i]];
-      const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const material = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        polygonOffset: true,
+        polygonOffsetFactor: FACELET_POLYGON_OFFSET_FACTOR,
+        polygonOffsetUnits: FACELET_POLYGON_OFFSET_UNITS,
+      });
       const mesh = new THREE.Mesh(faceletGeometry, material);
 
       mesh.position.set(ax * FACELET_OFFSET, ay * FACELET_OFFSET, az * FACELET_OFFSET);

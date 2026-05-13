@@ -78,3 +78,18 @@ The function should also check if the cube is solved, so it returns three possib
 
 Then, add a label according to "details_of_behavior.md#Label above main cube". For now, the third kind of
 label just prints 0 for the number of steps.
+
+### Step 9: Implement solver
+
+Implement a function which takes a cube configuration (facelet colors), computes the shortest path
+using the face-turn metric (both quarter or half turns count 1 step) and returns:
+
+- the number of steps needed to solve the cube
+- a list of next-steps items, where each item is a cube configuration (facelet-colors) and the code of the move
+  (as described in "main.spec.md#Displaying the next steps towards solutions")
+
+### Step 10: Display and jump to next steps
+
+When the main cube is valid, call the solver, update the next-step cubes around the main cube.
+When the user clicks on a next-step cube, copy that configuration onto the main cube and refresh
+by calling the solver again and updating the next-step cubes.

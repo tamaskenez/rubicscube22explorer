@@ -47,14 +47,6 @@ export function initialAppState(): AppState {
   return {
     selectedColor: 'G',
     cube: solvedCube(),
-    nextSteps: makeTestNextSteps(),
+    nextSteps: [],
   };
-}
-
-function makeTestNextSteps(): NextStepCube[] {
-  const instructions = ['R', "R'", 'R2', 'U', "U'", 'U2', 'F'];
-  return instructions.map((instruction) => ({
-    facelets: solvedCube(),
-    instruction,
-  }));
 }

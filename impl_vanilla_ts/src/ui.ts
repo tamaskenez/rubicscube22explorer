@@ -5,6 +5,7 @@ import {
   solvedCube,
   type Color,
   type CubeFacelets,
+  type Face,
   type NextStepCube,
 } from './state';
 import { createCubeView, updateCubeView, type CubeView } from './cube_view';
@@ -22,8 +23,8 @@ const CUBE_FACE_FILL_RATIO =
 const MAIN_CUBE_VIEWPORT_FACTOR = 0.45; // viewport side = factor * canvas height
 const NEXT_STEP_VIEWPORT_FACTOR = 0.22;
 
-const MAX_TILT_ANGLE = Math.PI / 4; // 45 degrees
-const TILT_FACTOR = MAX_TILT_ANGLE / 250; // rad per pixel
+const MAX_TILT_ANGLE = Math.PI / 7; // 45 degrees
+const TILT_FACTOR = MAX_TILT_ANGLE / 75; // rad per pixel
 const ORIENTATION_DECAY_RATE = 18; // 1/s
 const INERT_ZONE_MULTIPLIER = 1.4;
 
@@ -37,6 +38,10 @@ const ARROW_HEAD_WIDTH = 10;
 const ARROW_LABEL_SIZE = 16;
 const ARROW_LABEL_OFFSET = 8;
 const ARROW_CUBE_RADIUS_FACTOR = 1.4; // arrow endpoints sit on a square slightly bigger than the cube face
+
+const MAIN_LABEL_FONT_SIZE = 18;
+const MAIN_LABEL_COLOR = 0x333333;
+const MAIN_LABEL_MARGIN = 24; // pixels between the bottom of the label and the top of the main cube viewport
 
 const PALETTE_LAYOUT: ReadonlyArray<readonly [number, number, Color]> = [
   [1, 0, 'W'],
@@ -138,6 +143,7 @@ export class UI {
 
   private readonly mainCube: ManagedCube;
   private readonly nextStepDisplays: NextStepDisplay[] = [];
+  private readonly mainCubeLabel: Text;
 
   private pointerScreenPos: { x: number; y: number } | null = null;
   private lastFrameTime = 0;
@@ -164,6 +170,7 @@ export class UI {
   });
 
   onPaletteColorClicked: (color: Color) => void = () => {};
+  onMainCubeFaceletClicked: (face: Face, index: number) => void = () => {};
 
   constructor(host: HTMLElement) {
     this.host = host;
@@ -195,6 +202,18 @@ export class UI {
       this.viewportSizeFor(MAIN_CUBE_VIEWPORT_FACTOR),
       solvedCube(),
     );
+
+    this.mainCubeLabel = new Text();
+    this.mainCubeLabel.material = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+    });
+    this.mainCubeLabel.fontSize = MAIN_LABEL_FONT_SIZE;
+    this.mainCubeLabel.color = MAIN_LABEL_COLOR;
+    this.mainCubeLabel.anchorX = 'center';
+    this.mainCubeLabel.anchorY = 'bottom';
+    this.mainCubeLabel.scale.y = -1; // overlay Y is flipped; mirror so glyphs read right-side-up
+    this.overlayScene.add(this.mainCubeLabel);
 
     this.buildPalette();
 
@@ -237,6 +256,20 @@ export class UI {
     };
     this.applyCubeView(this.mainCube);
     this.layoutNextSteps();
+    this.positionMainCubeLabel();
+  }
+
+  setMainCubeLabel(text: string): void {
+    this.mainCubeLabel.text = text;
+    this.mainCubeLabel.maxWidth = this.host.clientWidth * 0.9;
+    this.positionMainCubeLabel();
+    this.mainCubeLabel.sync();
+  }
+
+  private positionMainCubeLabel(): void {
+    const x = this.mainCube.screenCenter.x;
+    const y = this.mainCube.screenCenter.y - this.mainCube.viewportSize / 2 - MAIN_LABEL_MARGIN;
+    this.mainCubeLabel.position.set(x, y, 1);
   }
 
   renderNextStepCubes(steps: NextStepCube[]): void {
@@ -509,6 +542,9 @@ export class UI {
     }
     this.applyCubeView(this.mainCube);
     this.layoutNextSteps();
+    this.mainCubeLabel.maxWidth = w * 0.9;
+    this.positionMainCubeLabel();
+    this.mainCubeLabel.sync();
   }
 
   private hitTestPalette(event: MouseEvent): Color | null {
@@ -527,7 +563,35 @@ export class UI {
       return;
     }
     const color = this.hitTestPalette(event);
-    if (color !== null) this.onPaletteColorClicked(color);
+    if (color !== null) {
+      this.onPaletteColorClicked(color);
+      return;
+    }
+    const facelet = this.hitTestMainCubeFacelet(event);
+    if (facelet) {
+      this.onMainCubeFaceletClicked(facelet.face, facelet.index);
+    }
+  }
+
+  private hitTestMainCubeFacelet(event: MouseEvent): { face: Face; index: number } | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const cube = this.mainCube;
+    const halfV = cube.viewportSize / 2;
+    const dx = px - cube.screenCenter.x;
+    const dy = py - cube.screenCenter.y;
+    if (Math.abs(dx) > halfV || Math.abs(dy) > halfV) return null;
+    this.pointer.x = dx / halfV;
+    this.pointer.y = -dy / halfV;
+    this.raycaster.setFromCamera(this.pointer, cube.camera);
+    const hits = this.raycaster.intersectObjects(cube.view.faceletMeshes, false);
+    if (hits.length === 0) return null;
+    const obj = hits[0].object;
+    return {
+      face: obj.userData.face as Face,
+      index: obj.userData.faceletIndex as number,
+    };
   }
 
   private onPointerDown(event: PointerEvent): void {

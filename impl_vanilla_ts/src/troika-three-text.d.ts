@@ -17,6 +17,7 @@ declare module 'troika-three-text' {
     font: string;
     outlineColor: number | string | THREE.Color;
     outlineWidth: number | string;
+    maxWidth: number;
     sync(callback?: () => void): void;
     dispose(): void;
   }

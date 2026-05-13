@@ -54,6 +54,7 @@ export interface CubeView {
   group: THREE.Group;
   cubies: Cubie[];
   faceletMaterials: Record<Face, FaceletQuad>;
+  faceletMeshes: THREE.Mesh[];
 }
 
 export interface CubeViewParams {
@@ -81,6 +82,7 @@ export function createCubeView(): CubeView {
 
   const faceletGeometry = new THREE.PlaneGeometry(FACELET_SIZE, FACELET_SIZE);
   const faceletMaterials = {} as Record<Face, FaceletQuad>;
+  const faceletMeshes: THREE.Mesh[] = [];
 
   for (const face of ALL_FACES) {
     const cubieIndices = FACELET_TO_CUBIE[face];
@@ -103,14 +105,18 @@ export function createCubeView(): CubeView {
         case 'B': mesh.rotation.y = Math.PI; break;
       }
 
+      mesh.userData.face = face;
+      mesh.userData.faceletIndex = i;
+
       cubie.group.add(mesh);
       materials.push(material);
+      faceletMeshes.push(mesh);
     }
 
     faceletMaterials[face] = materials as FaceletQuad;
   }
 
-  return { group, cubies, faceletMaterials };
+  return { group, cubies, faceletMaterials, faceletMeshes };
 }
 
 const tmpQuaternion = new THREE.Quaternion();

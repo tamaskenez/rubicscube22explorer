@@ -61,3 +61,20 @@ Implement the following behaviors:
 - Make sure both the dynamic orientation and the drag mechanics work for the next-step cubes.
 
 To test the system, temporarily, on program startup add 7 next-step cubes to AppState.
+
+### Step 7: Facelet coloring
+
+First, remove the 7 next-steps cubes added at startup.
+Then, implement facelet coloring. This is only for the main cube. The user can click on a facelet
+of the main cube which turns into the currently selected color.
+
+### Step 8: Validator and label
+
+Implement a function which tells if the configuration of cube facelet colors is valid, meaning,
+reachable from a solved cube, which the solved cube have their colors oriented in the standard way:
+if green is facing the viewer, red is on the right, orange on the left, white on top, yellow on bottom, blue on back.
+
+The function should also check if the cube is solved, so it returns three possible values: "valid_solved", "valid_unsolved", "invalid".
+
+Then, add a label according to "details_of_behavior.md#Label above main cube". For now, the third kind of
+label just prints 0 for the number of steps.

@@ -32,14 +32,29 @@ export function solvedCube(): CubeFacelets {
   };
 }
 
+export interface NextStepCube {
+  facelets: CubeFacelets;
+  instruction: string;
+}
+
 export interface AppState {
   selectedColor: Color;
   cube: CubeFacelets;
+  nextSteps: NextStepCube[];
 }
 
 export function initialAppState(): AppState {
   return {
     selectedColor: 'G',
     cube: solvedCube(),
+    nextSteps: makeTestNextSteps(),
   };
+}
+
+function makeTestNextSteps(): NextStepCube[] {
+  const instructions = ['R', "R'", 'R2', 'U', "U'", 'U2', 'F'];
+  return instructions.map((instruction) => ({
+    facelets: solvedCube(),
+    instruction,
+  }));
 }

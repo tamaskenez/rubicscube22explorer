@@ -9,6 +9,7 @@ export class Logic {
   start(): void {
     this.ui.showSelectedColor(this.state.selectedColor);
     this.ui.renderMainCube(this.state.cube);
+    this.ui.renderNextStepCubes(this.state.nextSteps);
   }
 
   onPaletteColorClicked(color: Color): void {

@@ -100,4 +100,7 @@ Handle the following key presses: w, y, g, b, r, o and make them activate the co
 
 ### Step 12: Animate face turn
 
-When the user 
+When the user clicks on a next step, perform these two animations in parallel:
+
+- the next-step cubes and arrows fade out
+- the chosen face is turned on main cube

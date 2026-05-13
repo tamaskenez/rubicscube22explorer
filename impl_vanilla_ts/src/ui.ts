@@ -43,6 +43,29 @@ const MAIN_LABEL_FONT_SIZE = 18;
 const MAIN_LABEL_COLOR = 0x333333;
 const MAIN_LABEL_MARGIN = 24; // pixels between the bottom of the label and the top of the main cube viewport
 
+const NEXT_STEP_ANIMATION_MS = 1000;
+
+const KEY_TO_COLOR: Record<string, Color> = {
+  w: 'W',
+  y: 'Y',
+  g: 'G',
+  b: 'B',
+  r: 'R',
+  o: 'O',
+};
+
+const FACE_LIST: ReadonlyArray<Face> = ['U', 'D', 'F', 'B', 'L', 'R'];
+
+function parseInstruction(instr: string): { face: Face; angle: number } | null {
+  if (instr.length < 1 || instr.length > 2) return null;
+  const face = instr[0] as Face;
+  if (!FACE_LIST.includes(face)) return null;
+  if (instr.length === 1) return { face, angle: -Math.PI / 2 };
+  if (instr[1] === '2') return { face, angle: -Math.PI };
+  if (instr[1] === "'") return { face, angle: Math.PI / 2 };
+  return null;
+}
+
 const PALETTE_LAYOUT: ReadonlyArray<readonly [number, number, Color]> = [
   [1, 0, 'W'],
   [0, 1, 'O'],
@@ -91,6 +114,7 @@ interface ManagedCube {
   targetOrientation: THREE.Quaternion;
   currentOrientation: THREE.Quaternion;
   frozen: boolean;
+  spinningFace: { face: Face; angle: number } | null;
 }
 
 interface ArrowOverlay {
@@ -162,12 +186,22 @@ export class UI {
   private readonly arrowShaftMaterial = new THREE.MeshBasicMaterial({
     color: ARROW_COLOR,
     side: THREE.DoubleSide,
+    transparent: false,
   });
   private readonly arrowHeadGeometry: THREE.BufferGeometry;
   private readonly arrowHeadMaterial = new THREE.MeshBasicMaterial({
     color: ARROW_COLOR,
     side: THREE.DoubleSide,
+    transparent: false,
   });
+
+  private animationState: {
+    startTime: number;
+    duration: number;
+    face: Face;
+    targetAngle: number;
+    nextStepIndex: number;
+  } | null = null;
 
   onPaletteColorClicked: (color: Color) => void = () => {};
   onMainCubeFaceletClicked: (face: Face, index: number) => void = () => {};
@@ -219,6 +253,7 @@ export class UI {
     this.buildPalette();
 
     window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('keydown', (e) => this.onKeyDown(e));
 
     const canvas = this.renderer.domElement;
     canvas.addEventListener('click', (e) => this.onClick(e));
@@ -238,10 +273,74 @@ export class UI {
       for (const display of this.nextStepDisplays) {
         this.updateCubeOrientation(display.cube, dt);
       }
+      this.updateAnimation(now);
       this.render();
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
+  }
+
+  private updateAnimation(now: number): void {
+    if (!this.animationState) return;
+    const elapsed = now - this.animationState.startTime;
+    const t = Math.min(elapsed / this.animationState.duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+
+    this.mainCube.spinningFace = {
+      face: this.animationState.face,
+      angle: this.animationState.targetAngle * eased,
+    };
+    this.applyCubeView(this.mainCube);
+
+    this.setFadeOpacity(1 - eased);
+
+    if (t >= 1) {
+      const index = this.animationState.nextStepIndex;
+      this.animationState = null;
+      this.mainCube.spinningFace = null;
+      this.setFadeOpacity(1);
+      this.onNextStepCubeClicked(index);
+    }
+  }
+
+  private setFadeOpacity(opacity: number): void {
+    const transparent = opacity < 1;
+    this.arrowShaftMaterial.opacity = opacity;
+    this.arrowShaftMaterial.transparent = transparent;
+    this.arrowHeadMaterial.opacity = opacity;
+    this.arrowHeadMaterial.transparent = transparent;
+
+    for (const display of this.nextStepDisplays) {
+      const view = display.cube.view;
+      view.bodyMaterial.opacity = opacity;
+      view.bodyMaterial.transparent = transparent;
+      for (const face of FACE_LIST) {
+        for (const mat of view.faceletMaterials[face]) {
+          mat.opacity = opacity;
+          mat.transparent = transparent;
+        }
+      }
+      (display.arrow.label.material as THREE.Material).opacity = opacity;
+    }
+  }
+
+  private startNextStepAnimation(index: number): void {
+    if (this.animationState) return;
+    if (index < 0 || index >= this.nextStepDisplays.length) return;
+    const instruction = this.nextStepDisplays[index].instruction;
+    const parsed = parseInstruction(instruction);
+    if (!parsed) {
+      // Fall through: jump straight to logic with no animation.
+      this.onNextStepCubeClicked(index);
+      return;
+    }
+    this.animationState = {
+      startTime: performance.now(),
+      duration: NEXT_STEP_ANIMATION_MS,
+      face: parsed.face,
+      targetAngle: parsed.angle,
+      nextStepIndex: index,
+    };
   }
 
   showSelectedColor(color: Color): void {
@@ -317,6 +416,7 @@ export class UI {
       targetOrientation: new THREE.Quaternion(),
       currentOrientation: new THREE.Quaternion(),
       frozen: false,
+      spinningFace: null,
     };
   }
 
@@ -425,7 +525,7 @@ export class UI {
     updateCubeView(cube.view, {
       facelets: cube.facelets,
       orientation: cube.currentOrientation,
-      spinningFace: null,
+      spinningFace: cube.spinningFace,
     });
   }
 
@@ -563,6 +663,7 @@ export class UI {
       this.wasDragging = false;
       return;
     }
+    if (this.animationState) return;
     const color = this.hitTestPalette(event);
     if (color !== null) {
       this.onPaletteColorClicked(color);
@@ -575,7 +676,7 @@ export class UI {
     }
     const nextStepIndex = this.hitTestNextStepCube(event);
     if (nextStepIndex !== null) {
-      this.onNextStepCubeClicked(nextStepIndex);
+      this.startNextStepAnimation(nextStepIndex);
     }
   }
 
@@ -620,6 +721,7 @@ export class UI {
   }
 
   private onPointerDown(event: PointerEvent): void {
+    if (this.animationState) return;
     const rect = this.renderer.domElement.getBoundingClientRect();
     const px = event.clientX - rect.left;
     const py = event.clientY - rect.top;
@@ -674,6 +776,15 @@ export class UI {
     if (color !== this.hoveredColor) {
       this.hoveredColor = color;
       this.renderSwatches();
+    }
+  }
+
+  private onKeyDown(event: KeyboardEvent): void {
+    if (this.animationState) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const color = KEY_TO_COLOR[event.key.toLowerCase()];
+    if (color !== undefined) {
+      this.onPaletteColorClicked(color);
     }
   }
 

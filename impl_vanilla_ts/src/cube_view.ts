@@ -55,6 +55,7 @@ export interface CubeView {
   cubies: Cubie[];
   faceletMaterials: Record<Face, FaceletQuad>;
   faceletMeshes: THREE.Mesh[];
+  bodyMaterial: THREE.MeshBasicMaterial;
 }
 
 export interface CubeViewParams {
@@ -116,7 +117,7 @@ export function createCubeView(): CubeView {
     faceletMaterials[face] = materials as FaceletQuad;
   }
 
-  return { group, cubies, faceletMaterials, faceletMeshes };
+  return { group, cubies, faceletMaterials, faceletMeshes, bodyMaterial };
 }
 
 const tmpQuaternion = new THREE.Quaternion();
